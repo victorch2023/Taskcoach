@@ -40,6 +40,8 @@ const intervalFields = document.querySelector("#interval-fields");
 const intervalValue = document.querySelector("#interval-value");
 const githubToken = document.querySelector("#github-token");
 const githubStatus = document.querySelector("#github-status");
+const githubHelp = document.querySelector("#github-help");
+const shareButton = document.querySelector("#share-device");
 const disconnectButton = document.querySelector("#github-disconnect");
 const syncButton = document.querySelector("#sync");
 
@@ -421,12 +423,79 @@ function onViewClick(event) {
 function openGithub() {
   githubToken.value = "";
   disconnectButton.hidden = !token;
+  shareButton.hidden = !token;
+  githubHelp.hidden = !!token;
   habitForm.hidden = true;
   backdrop.hidden = false;
   githubForm.hidden = false;
   document.body.classList.add("locked");
   paintSync();
-  githubToken.focus();
+  if (!token) githubToken.focus();
+}
+
+function consumeAccessHash() {
+  const params = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const access = params.get("acceso");
+  if (!access) return false;
+  token = access.trim();
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // El acceso vale al menos durante esta visita.
+  }
+  const screenName = params.get("pantalla");
+  const nextHash = SCREENS.includes(screenName) ? `#${screenName}` : "";
+  history.replaceState(null, "", `${location.pathname}${location.search}${nextHash}`);
+  return true;
+}
+
+function copyText(text) {
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.appendChild(field);
+  field.focus();
+  field.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  field.remove();
+  return copied;
+}
+
+async function shareDevice() {
+  if (!token) return;
+  const url = new URL(location.href);
+  url.search = "";
+  url.hash = `acceso=${encodeURIComponent(token)}`;
+  const link = url.toString();
+  githubStatus.classList.remove("error");
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Taskcoach", url: link });
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    githubStatus.textContent = "Enlace copiado";
+    return;
+  } catch {
+    // Algunos navegadores solo permiten copiar con el método clásico.
+  }
+  if (copyText(link)) {
+    githubStatus.textContent = "Enlace copiado";
+    return;
+  }
+  githubStatus.textContent = "No se pudo compartir";
+  githubStatus.classList.add("error");
 }
 
 function encodeBase64(text) {
@@ -529,18 +598,34 @@ async function pull() {
   paintSync();
 }
 
-async function pullPublic() {
+async function fetchPublicState() {
   try {
-    const response = await fetch(FILE_PATH, { cache: "no-store" });
-    if (!response.ok) return;
-    const remote = normalize(await response.json());
-    if (isNewer(remote.updatedAt, state.updatedAt)) {
-      state = remote;
-      saveLocal();
-    }
+    const response = await fetch(`${FILE_URL}?ref=${BRANCH}`, {
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      cache: "no-store",
+    });
+    if (response.ok) return normalize(await response.json());
+  } catch {
+    // Si la API no responde, se intenta el archivo publicado.
+  }
+  try {
+    const response = await fetch(`${FILE_PATH}?t=${Date.now()}`, { cache: "no-store" });
+    if (response.ok) return normalize(await response.json());
   } catch {
     // Sin archivo público la app sigue con lo guardado en el navegador.
   }
+  return null;
+}
+
+async function pullPublic() {
+  const remote = await fetchPublicState();
+  if (!remote || !isNewer(remote.updatedAt, state.updatedAt)) return false;
+  state = remote;
+  saveLocal();
+  return true;
 }
 
 function schedulePush() {
@@ -625,6 +710,8 @@ async function saveToken(event) {
   }
   githubToken.value = "";
   disconnectButton.hidden = false;
+  shareButton.hidden = false;
+  githubHelp.hidden = true;
   syncError = "";
   try {
     await pull();
@@ -660,6 +747,7 @@ function bind() {
   pauseButton.addEventListener("click", pauseHabit);
   deleteButton.addEventListener("click", deleteHabit);
   githubForm.addEventListener("submit", saveToken);
+  shareButton.addEventListener("click", () => { void shareDevice(); });
   disconnectButton.addEventListener("click", disconnect);
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => setMode(button.dataset.mode));
@@ -683,7 +771,9 @@ function bind() {
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
+    else void refreshFromRemote();
   });
+  window.addEventListener("focus", () => { void refreshFromRemote(); });
   window.addEventListener("hashchange", () => {
     const next = location.hash.slice(1);
     if (SCREENS.includes(next) && next !== screen) {
@@ -693,11 +783,30 @@ function bind() {
   });
 }
 
+let lastRefreshAt = 0;
+
+async function refreshFromRemote() {
+  const now = Date.now();
+  if (now - lastRefreshAt < 15000) return;
+  lastRefreshAt = now;
+  if (token) {
+    try {
+      await pull();
+    } catch (error) {
+      syncError = errorText(error);
+      paintSync();
+    }
+    return;
+  }
+  if (await pullPublic()) render();
+}
+
 async function init() {
+  const receivedAccess = consumeAccessHash();
   const initial = location.hash.slice(1);
   if (SCREENS.includes(initial)) screen = initial;
   state = loadLocal() || normalize(null);
-  token = loadToken();
+  if (!receivedAccess) token = loadToken();
   bind();
   render();
   if (token) {
@@ -711,6 +820,7 @@ async function init() {
     await pullPublic();
     render();
   }
+  lastRefreshAt = Date.now();
 }
 
 void init();
