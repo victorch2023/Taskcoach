@@ -40,10 +40,14 @@ const intervalFields = document.querySelector("#interval-fields");
 const intervalValue = document.querySelector("#interval-value");
 const githubToken = document.querySelector("#github-token");
 const githubStatus = document.querySelector("#github-status");
-const githubHelp = document.querySelector("#github-help");
+const githubSetup = document.querySelector("#github-setup");
+const githubSave = document.querySelector("#github-save");
+const githubQr = document.querySelector("#github-qr");
+const githubQrHint = document.querySelector("#github-qr-hint");
 const shareButton = document.querySelector("#share-device");
 const disconnectButton = document.querySelector("#github-disconnect");
 const syncButton = document.querySelector("#sync");
+const syncLabel = document.querySelector("#sync-label");
 
 let state = normalize(null);
 let token = "";
@@ -420,17 +424,56 @@ function onViewClick(event) {
   if (shift) shiftMonth(Number(shift.dataset.shift));
 }
 
+function accessLink() {
+  const url = new URL(location.href);
+  url.search = "";
+  if (!url.pathname.endsWith("/")) url.pathname += "/";
+  url.hash = `acceso=${encodeURIComponent(token)}`;
+  return url.toString();
+}
+
+function readAccess(value) {
+  const trimmed = value.trim();
+  const marker = "acceso=";
+  const at = trimmed.indexOf(marker);
+  if (at === -1) return trimmed;
+  const encoded = trimmed.slice(at + marker.length).split(/[&#]/)[0];
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return encoded;
+  }
+}
+
+function paintQr() {
+  githubQr.replaceChildren();
+  if (!token || typeof globalThis.qrcode !== "function") {
+    githubQr.hidden = true;
+    githubQrHint.hidden = true;
+    return;
+  }
+  const code = globalThis.qrcode(0, "M");
+  code.addData(accessLink());
+  code.make();
+  githubQr.innerHTML = code.createSvgTag({ cellSize: 4, margin: 8, scalable: true });
+}
+
 function openGithub() {
+  const connected = !!token;
   githubToken.value = "";
-  disconnectButton.hidden = !token;
-  shareButton.hidden = !token;
-  githubHelp.hidden = !!token;
+  githubSetup.hidden = connected;
+  githubSave.hidden = connected;
+  githubQr.hidden = !connected;
+  githubQrHint.hidden = !connected;
+  disconnectButton.hidden = !connected;
+  shareButton.hidden = !connected;
+  if (connected) paintQr();
   habitForm.hidden = true;
   backdrop.hidden = false;
   githubForm.hidden = false;
   document.body.classList.add("locked");
   paintSync();
-  if (!token) githubToken.focus();
+  if (!connected) githubToken.focus();
 }
 
 function consumeAccessHash() {
@@ -470,10 +513,7 @@ function copyText(text) {
 
 async function shareDevice() {
   if (!token) return;
-  const url = new URL(location.href);
-  url.search = "";
-  url.hash = `acceso=${encodeURIComponent(token)}`;
-  const link = url.toString();
+  const link = accessLink();
   githubStatus.classList.remove("error");
   try {
     if (navigator.share) {
@@ -677,6 +717,7 @@ function syncMessage() {
 
 function paintSync() {
   syncButton.className = "sync";
+  syncLabel.textContent = token ? (syncMessage() || "Conectado") : "GitHub";
   if (!token) syncButton.title = "GitHub";
   else if (syncing) {
     syncButton.classList.add("syncing");
@@ -696,7 +737,7 @@ function paintSync() {
 
 async function saveToken(event) {
   event.preventDefault();
-  const value = githubToken.value.trim();
+  const value = readAccess(githubToken.value);
   if (!value) {
     githubStatus.textContent = "Falta el token";
     githubStatus.classList.add("error");
@@ -709,9 +750,13 @@ async function saveToken(event) {
     // Si el navegador no guarda el token, vale para esta visita.
   }
   githubToken.value = "";
+  githubSetup.hidden = true;
+  githubSave.hidden = true;
+  githubQr.hidden = false;
+  githubQrHint.hidden = false;
+  paintQr();
   disconnectButton.hidden = false;
   shareButton.hidden = false;
-  githubHelp.hidden = true;
   syncError = "";
   try {
     await pull();

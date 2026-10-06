@@ -486,6 +486,16 @@ input:focus { border-bottom-color: var(--ink); }
 
 .hint.error { color: var(--danger); }
 
+#github-qr:not([hidden]) {
+  display: flex;
+  justify-content: center;
+}
+
+#github-qr svg {
+  width: 12.5rem;
+  height: 12.5rem;
+}
+
 .primary {
   border: 0;
   border-radius: 999px;
