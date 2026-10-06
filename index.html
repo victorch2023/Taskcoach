@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f0ea">
+  <title>Taskcoach</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='none' stroke='%231c1b19' stroke-width='1.5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button id="sync" class="sync" type="button">
+        <span class="dot" aria-hidden="true"></span>
+        GitHub
+      </button>
+    </header>
+    <main id="view"></main>
+  </div>
+
+  <nav class="nav" aria-label="Secciones">
+    <button type="button" data-screen="hoy">Hoy</button>
+    <button type="button" data-screen="plan">Plan</button>
+    <button type="button" data-screen="historial">Historial</button>
+    <button type="button" data-screen="estadisticas">Estadísticas</button>
+  </nav>
+
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <form id="habit-form" class="sheet" hidden>
+    <h2 id="habit-title">Nueva</h2>
+    <label>
+      <span>Nombre</span>
+      <input id="habit-name" type="text" maxlength="80" required autocomplete="off">
+    </label>
+    <div class="segment" role="group" aria-label="Frecuencia">
+      <button type="button" data-mode="daily" aria-pressed="true">Cada día</button>
+      <button type="button" data-mode="weekly" aria-pressed="false">Días</button>
+      <button type="button" data-mode="interval" aria-pressed="false">Cada</button>
+    </div>
+    <div id="weekly-fields" class="days" hidden>
+      <button type="button" data-dow="1" aria-pressed="false">Lu</button>
+      <button type="button" data-dow="2" aria-pressed="false">Ma</button>
+      <button type="button" data-dow="3" aria-pressed="false">Mi</button>
+      <button type="button" data-dow="4" aria-pressed="false">Ju</button>
+      <button type="button" data-dow="5" aria-pressed="false">Vi</button>
+      <button type="button" data-dow="6" aria-pressed="false">Sá</button>
+      <button type="button" data-dow="0" aria-pressed="false">Do</button>
+    </div>
+    <div id="interval-fields" class="every" hidden>
+      <span>Cada</span>
+      <button type="button" data-step="-1" aria-label="Menos">−</button>
+      <span id="interval-value">2</span>
+      <button type="button" data-step="1" aria-label="Más">+</button>
+      <span>días</span>
+    </div>
+    <label>
+      <span>Hora</span>
+      <input id="habit-time" type="time">
+    </label>
+    <p id="habit-error" class="hint"></p>
+    <button class="primary" type="submit">Guardar</button>
+    <div class="sheet-actions">
+      <button id="pause-habit" type="button" hidden>Pausar</button>
+      <button id="delete-habit" type="button" hidden>Eliminar</button>
+    </div>
+  </form>
+
+  <form id="github-form" class="sheet" hidden>
+    <h2>GitHub</h2>
+    <label>
+      <span>Token</span>
+      <input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+    </label>
+    <p class="hint">victorch2023/Taskcoach · data/estado.json</p>
+    <p id="github-status" class="hint"></p>
+    <button class="primary" type="submit">Guardar</button>
+    <div class="sheet-actions">
+      <button id="github-disconnect" type="button" hidden>Desconectar</button>
+    </div>
+  </form>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
