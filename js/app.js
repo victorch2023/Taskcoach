@@ -585,7 +585,7 @@ function flush() {
 function syncMessage() {
   if (syncError) return syncError;
   if (syncing) return "Guardando";
-  if (token && state.updatedAt && lastSyncedAt === state.updatedAt) return "Al día";
+  if (token && (!state.updatedAt || lastSyncedAt === state.updatedAt)) return "Al día";
   if (token) return "Conectado";
   return "";
 }
@@ -599,10 +599,10 @@ function paintSync() {
   } else if (syncError) {
     syncButton.classList.add("error");
     syncButton.title = syncError;
-  } else if (state.updatedAt && lastSyncedAt === state.updatedAt) {
+  } else if (!state.updatedAt || lastSyncedAt === state.updatedAt) {
     syncButton.classList.add("synced");
     syncButton.title = "Al día";
-  } else syncButton.title = token ? "Pendiente" : "GitHub";
+  } else syncButton.title = "Pendiente";
   if (!githubForm.hidden) {
     githubStatus.textContent = syncMessage();
     githubStatus.classList.toggle("error", !!syncError);
